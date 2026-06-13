@@ -1,30 +1,171 @@
 ---
 title: "What is your blogpost title? Add it here??"
 subtitle: "Assignment 4 ETC5512"
-author: "Who are you?? Add your name here"
+author: "Pei Sin Ang"
 format: html
 editor: visual
 ---
 
-
-::: {.panel-tabset}
-
+::: panel-tabset
 <!-- Task 1 Tab: Data and Documenting -->
+
 ## Data and Documenting
 
 ### What's in this section
 
 Here is where you should provide the more comprehensive details about your data and your processing steps.
 
-These are the data details that an "average" blog post reader is not concerned with (Task 1). 
+These are the data details that an "average" blog post reader is not concerned with (Task 1).
 
 ### Remember
 
 Please mention any additional files that you want the markers to review, eg. read me, meta data etc.
 
+## Topic
+Topic: Is there an optimal time and place to fill up your vehicle in Victoria?
+
+- Does an area's fuel price reflect its geographic location, or is it driven by the brands available nearby?
+
+- Do socioeconomically disadvantaged areas pay more or less for fuel compared to wealthier areas?
+
+- What is the optimal day of the week to refuel?
+
+While browsing the [ABC's national fuel price tracker](https://www.abc.net.au/news/2026-04-01/petrol-diesel-price-tracker/106513484) i noticed that Victoria's data was absent, due to the way the state releases price information. As someone personally affected by the fluctuating fuel costs, I wanted to fill that gap and investigate whether there are smart times and places to refuel in Victoria, using the Servo Saver dataset.
+
+## Dataset:
+
+1.  [Servo Saver Public API](https://service.vic.gov.au/find-services/transport-and-driving/servo-saver/help-centre/servo-saver-public-api#h2-11)
+
+    - Source: Service Victoria
+
+    - Content: Fuel price data for all registered service stations across Victoria
+
+    - Last Updated: 24-hour delay released
+
+    - Data Type: Census
+
+    - Licence: Creative Commons Attribution 4.0 International licence
+
+    - Limitation: Data refresh every 24-hour, there is no historical data. User will have to pull the data from the API key periodically. Coverage depends on retailer compliance.
+
+    - Privacy/Ethics: Not personally identifiable information. Commercial data only.
+2.  [ABS Digital Boundary Files](https://www.abs.gov.au/statistics/standards/australian-statistical-geography-standard-asgs/edition-3-july-2021-june-2026/access-and-downloads/digital-boundary-files)
+
+    - Source: Australian Bureau of Statistics (ABS)
+
+    - Content: Spatial boundary shapefiles used to map service station locations to statistical areas for geographic price comparison.
+    
+    - Last updated: 2021
+
+    - Data Type: GeoPackage/Shapefile
+
+    - Licence: Creative Commons Attribution 4.0 International licence
+
+    - Limitation: Boundaries released in 2021 and may not reflect recent urban developments.
+    
+    - Privacy/Ethics: No privacy concerns, geographic reference data only.
+
+3. [Socio-Economic Indexes for Areas (SEIFA), Australia 2021](https://www.abs.gov.au/statistics/people/people-and-communities/socio-economic-indexes-areas-seifa-australia/latest-release)
+
+    - Source: Australian Bureau of Statistics (ABS)
+    
+    - Content: Uses 2021 Census data to summarise the socio-economic characteristics of an area (such as income, education, occupation, housing and family structure)
+    
+    - Last updated: 27 April 2023 (refences 2021 Census data)
+    
+    - Data Type: Derived census-based aggregate
+    
+    - Licence: Creative Commons Attribution 4.0 International licence
+    
+    - Limitations: Based on 2021 Census data and may not reflect current socioeconomic conditions.
+    
+    - Privacy/Ethics: Aggregated area-level data, no reidentification concern.
+
+## Data Download
+
+### Servo Saver API 
+1. Obtain API access and authorisation from [Servo Saver Public API webpage](https://service.vic.gov.au/find-services/transport-and-driving/servo-saver/help-centre/servo-saver-public-api/apply-for-servo-saver-public-api)
+    - Access will take at least 24 hours, and the API key will be sent to applicants via email upon approval.
+
+2. Pull data
+```{r}
+#| eval: false
+
+library(httr2)
+
+# Request call 
+
+req <- request("https://api.fuel.service.vic.gov.au/open-data/v1/fuel/prices") |> 
+  req_headers(
+    "User-Agent" = "MyApp/1.0",
+    "x-consumer-ID" = Sys.getenv("SERVO_API_KEY"),
+    "x-transactionid" = "6ff20493-4de0-4735-a036-e1e8dd41b33c"
+  ) |> 
+  req_user_agent("R httr2 servo-saver-client")
+
+# Getting response 
+
+resp <- req_perform(req) |> 
+  resp_body_json(simplifyVector = TRUE) 
+
+# Save raw data as a tibble
+tibble::as_tibble(resp)
+```
+
+3. Unnest raw data that has dataframes within rows (repeat for every day the data is extracted) - Data extracted at 11.50pm AEST everyday from 1 June to 5 June (Monday to Friday)
+```{r}
+#| eval: false
+
+fuel_df_raw_1Jun <- resp$fuelPriceDetails |>
+  as_tibble() |>
+  unnest_wider(fuelStation) |>
+  rename(station_updatedAt = updatedAt) |>
+  unnest(fuelPrices) |> 
+  unnest(location)
+
+saveRDS(fuel_df_raw_1Jun, "data/fuel_df_raw_2026-06-01.rds")
+```
+
+4. Combine all 5 days of data into one
+```{r}
+library(tidyverse)
+
+fuel_raw_1Jun <- readRDS("data/fuel_df_raw_2026-06-01.rds")
+fuel_raw_2Jun <- readRDS("data/fuel_df_raw_2026-06-02.rds")
+fuel_raw_3Jun <- readRDS("data/fuel_df_raw_2026-06-03.rds")
+fuel_raw_4Jun <- readRDS("data/fuel_df_raw_2026-06-04.rds")
+fuel_raw_5Jun <- readRDS("data/fuel_df_raw_2026-06-05.rds")
+
+fuel_raw_combined <- bind_rows(fuel_raw_1Jun, 
+                               fuel_raw_2Jun,
+                               fuel_raw_3Jun,
+                               fuel_raw_4Jun,
+                               fuel_raw_5Jun
+                               )
+```
+
+5. Process data and save
+```{r}
+fuel_df_clean <-fuel_raw_combined |> 
+  select(-openingHours, -id) |>
+  #Change timezone to Melbourne Time
+  mutate(
+    station_updatedAt_dt = ymd_hms(station_updatedAt, tz = "UTC") |>
+      with_tz("Australia/Melbourne"), 
+    station_date = as.Date(station_updatedAt_dt, tz = "Australia/Melbourne"),
+    station_time = format(station_updatedAt_dt, "%H:%M:%S")
+  ) |> 
+  select(-station_updatedAt_dt, -station_updatedAt)
+
+# Save processed data 
+saveRDS(fuel_df_clean, "data/fuel_df_clean.rds")
+```
+
+### ABS Digital Boundary File
+
 <!-- Task 2 Tab: Writing your blogpost -->
 
-## Blog post 
+## Blog post
 
 ### What's in this section
 
@@ -32,17 +173,17 @@ Here is where you should write your blogpost! (Task 2)
 
 ### Blogpost Structure
 
-There is no strict structure for you to follow. However, here is a skeleton structure you may find helpful. 
+There is no strict structure for you to follow. However, here is a skeleton structure you may find helpful.
 
-1. Title (is set at the top of this document)
-2. Motivation  
-3. Data  
-4. Analysis     
-5. Conclusions  
-6. References 
-
+1.  Title (is set at the top of this document)
+2.  Motivation\
+3.  Data\
+4.  Analysis\
+5.  Conclusions\
+6.  References
 
 <!-- Task 3 Tab: Behind the Scenes -  -->
+
 ## Behind the Scenes
 
 ### What's in this section
@@ -50,4 +191,4 @@ There is no strict structure for you to follow. However, here is a skeleton stru
 Here is where you should tell us about your reflection on your analysis (Task 3).
 
 Again, these are the details about **your** perspective and the gritty details behind the scenes of your analysis.
-
+:::
