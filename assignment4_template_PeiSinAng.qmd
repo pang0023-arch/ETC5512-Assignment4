@@ -4,6 +4,9 @@ subtitle: "Assignment 4 ETC5512"
 author: "Pei Sin Ang"
 format: html
 editor: visual
+execute: 
+  message: false
+  warning: false
 ---
 
 ::: panel-tabset
@@ -11,18 +14,9 @@ editor: visual
 
 ## Data and Documenting
 
-### What's in this section
+**Topic:**
 
-Here is where you should provide the more comprehensive details about your data and your processing steps.
-
-These are the data details that an "average" blog post reader is not concerned with (Task 1).
-
-### Remember
-
-Please mention any additional files that you want the markers to review, eg. read me, meta data etc.
-
-## Topic
-Topic: Is there an optimal time and place to fill up your vehicle in Victoria?
+Is there an optimal time and place to fill up your vehicle in Victoria?
 
 - Does an area's fuel price reflect its geographic location, or is it driven by the brands available nearby?
 
@@ -32,7 +26,7 @@ Topic: Is there an optimal time and place to fill up your vehicle in Victoria?
 
 While browsing the [ABC's national fuel price tracker](https://www.abc.net.au/news/2026-04-01/petrol-diesel-price-tracker/106513484) i noticed that Victoria's data was absent, due to the way the state releases price information. As someone personally affected by the fluctuating fuel costs, I wanted to fill that gap and investigate whether there are smart times and places to refuel in Victoria, using the Servo Saver dataset.
 
-## Dataset:
+**Dataset:**
 
 1.  [Servo Saver Public API](https://service.vic.gov.au/find-services/transport-and-driving/servo-saver/help-centre/servo-saver-public-api#h2-11)
 
@@ -81,9 +75,8 @@ While browsing the [ABC's national fuel price tracker](https://www.abc.net.au/ne
     
     - Privacy/Ethics: Aggregated area-level data, no reidentification concern.
 
-## Data Download
+**Servo Saver API:**
 
-### Servo Saver API 
 1. Obtain API access and authorisation from [Servo Saver Public API webpage](https://service.vic.gov.au/find-services/transport-and-driving/servo-saver/help-centre/servo-saver-public-api/apply-for-servo-saver-public-api)
     - Access will take at least 24 hours, and the API key will be sent to applicants via email upon approval.
 
@@ -128,6 +121,8 @@ saveRDS(fuel_df_raw_1Jun, "data/fuel_df_raw_2026-06-01.rds")
 
 4. Combine all 5 days of data into one
 ```{r}
+#| eval: false
+
 library(tidyverse)
 
 fuel_raw_1Jun <- readRDS("data/fuel_df_raw_2026-06-01.rds")
@@ -146,9 +141,11 @@ fuel_raw_combined <- bind_rows(fuel_raw_1Jun,
 
 5. Process data and save
 ```{r}
+#| eval: false
+
 fuel_df_clean <-fuel_raw_combined |> 
   select(-openingHours, -id) |>
-  #Change timezone to Melbourne Time
+  # Change timezone to Melbourne Time
   mutate(
     station_updatedAt_dt = ymd_hms(station_updatedAt, tz = "UTC") |>
       with_tz("Australia/Melbourne"), 
@@ -161,7 +158,8 @@ fuel_df_clean <-fuel_raw_combined |>
 saveRDS(fuel_df_clean, "data/fuel_df_clean.rds")
 ```
 
-### ABS Digital Boundary File
+**ABS Digital Boundary File and SEIFA**
+
 
 <!-- Task 2 Tab: Writing your blogpost -->
 
