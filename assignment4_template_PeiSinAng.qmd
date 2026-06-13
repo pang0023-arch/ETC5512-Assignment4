@@ -179,7 +179,7 @@ sa2_raw <- st_read("data/SA2_2021_AUST_SHP_GDA2020/SA2_2021_AUST_GDA2020.shp")
 # Filter to Victoria only
 sa2_vic <- sa2_raw |>
   filter(STE_CODE21 == "2") |>
-  select(SA2_CODE21, geometry)
+  select(SA2_CODE21, AREASQKM21, geometry)
 
 saveRDS(sa2_vic, "data/sa2_vic.rds")
 ```
@@ -307,6 +307,7 @@ ggplot() +
   theme_bw() +
   labs(title = "Median Diesel Price by SA2 Area", fill = "Median Price (c/L)")
 ```
+Across both U91 and diesel, the number of distinct brands within an SA2 showed no consistent negative relationship with median price. Rather than declining with more compeition, prices zigsag with no clear pattern. This suggests brand availability alone is not a reliable predictor of fuel price. 
 
 ```{r}
 # Number of brands per SA2 vs median price
@@ -347,12 +348,13 @@ ggplot(sa2_competition_grouped, aes(x = n_brands, y = mean_price)) +
        y = "Mean of Median Price (c/L)",
        title = "Brand Competition vs Fuel Price by SA2")
 ```
+
 ```{r}
 # Anomaly when number of distinct brands at 8 or 9, prices increases significantly 
 # Where are these areas? Larger SA2 areas with potentially more spread out stations 
 sa2_competition %>%
   filter(n_brands >= 8) %>%
-  left_join(sa2_seifa %>% st_drop_geometry() %>% select(SA2_CODE21, SA2_name), 
+  left_join(sa2_seifa %>% st_drop_geometry() %>% select(SA2_CODE21, SA2_name, AREASQKM21),
             by = "SA2_CODE21") %>%
   arrange(desc(median_price))
 ```
