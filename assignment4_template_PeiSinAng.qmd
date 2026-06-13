@@ -1,5 +1,5 @@
 ---
-title: "What is your blogpost title? Add it here??"
+title: "Is there an optimal time and place to fill up your vehicle in Victoria?"
 subtitle: "Assignment 4 ETC5512"
 author: "Pei Sin Ang"
 format: html
@@ -152,13 +152,77 @@ fuel_df_clean <-fuel_raw_combined |>
     station_date = as.Date(station_updatedAt_dt, tz = "Australia/Melbourne"),
     station_time = format(station_updatedAt_dt, "%H:%M:%S")
   ) |> 
-  select(-station_updatedAt_dt, -station_updatedAt)
+  select(-station_updatedAt_dt, -station_updatedAt) |> 
+  # Only assessing U91 and Diesel 
+  filter(fuelType %in% c("U91", "DSL")) 
 
 # Save processed data 
 saveRDS(fuel_df_clean, "data/fuel_df_clean.rds")
 ```
 
 **ABS Digital Boundary File and SEIFA**
+
+1. Navigate to [ABS Digital Boundary Files](https://www.abs.gov.au/statistics/standards/australian-statistical-geography-standard-asgs/edition-3-july-2021-june-2026/access-and-downloads/digital-boundary-files)
+
+2. Download the Statistical Area Level 1 (SA1) - 2021 - Shapefile
+
+3. Navigate to [Socio-Economic Indexes for Areas (SEIFA), Australia 2021](https://www.abs.gov.au/statistics/people/people-and-communities/socio-economic-indexes-areas-seifa-australia/latest-release)
+
+4. Download the Statistical Area Level 1, Indexes, SEIFA 2021.xlsx
+
+5. Process and save SA1 shapefile
+```{r}
+#| eval: false
+# Read raw shapefiles
+sa1_raw <- st_read("data/SA1_2021_AUST_SHP_GDA2020/SA1_2021_AUST_GDA2020.shp")
+
+# Filter to Victoria only
+sa1_vic <- sa1_raw |> 
+  filter(STE_CODE21 == "2") |> 
+  select(SA1_CODE21, geometry)
+
+saveRDS(sa1_vic, "data/sa1_vic.rds")
+```
+
+6. Read, process, join and save the SEIFA SA1 data
+```{r}
+#| eval: false
+
+library(readxl)
+seifa_raw <- read_excel("data/Statistical Area Level 1, Indexes, SEIFA 2021.xlsx",
+                        sheet = "Table 1",
+                        skip = 5)
+# Rename header
+seifa_clean <- seifa_raw |>
+  rename(
+    SA1_CODE21    = 1,
+    IRSD_score    = 2,
+    IRSD_decile   = 3,
+    IRSAD_score   = 4,
+    IRSAD_decile  = 5,
+    IER_score     = 6,
+    IER_decile    = 7,
+    IEO_score     = 8,
+    IEO_decile    = 9
+  ) |>
+  select(SA1_CODE21, IRSD_score, IRSD_decile, IRSAD_score, IRSAD_decile,
+         IER_score, IER_decile, IEO_score, IEO_decile) |>
+  mutate(SA1_CODE21 = as.character(SA1_CODE21)) |>
+  filter(startsWith(SA1_CODE21, "2")) #filter only Victoria SA1
+
+# Save processed SEIFA data
+saveRDS(seifa_clean, "data/seifa_clean.rds")
+
+# Sanity check before joining 
+sum(sa1_vic$SA1_CODE21 %in% seifa_clean$SA1_CODE21) 
+
+# Join data
+sa1_seifa <- sa1_vic |>
+  left_join(seifa_clean, by = "SA1_CODE21")
+
+# Save joined data 
+saveRDS(sa1_seifa, "data/sa1_seifa.rds")
+```
 
 
 <!-- Task 2 Tab: Writing your blogpost -->
@@ -179,6 +243,48 @@ There is no strict structure for you to follow. However, here is a skeleton stru
 4.  Analysis\
 5.  Conclusions\
 6.  References
+
+**What is the optimal day of the week to refuel?**
+
+```{r}
+library(lubridate)
+
+fuel_df_clean <- readRDS("data/fuel_df_clean.rds")
+
+fuel_df_clean |>
+  mutate(transaction_day = factor(wday(station_date, label = TRUE, abbr = FALSE))) |>
+  ggplot(aes(x = transaction_day, y = price, fill = transaction_day)) +
+  geom_boxplot() +
+  facet_wrap(~ fuelType) +
+  scale_fill_brewer(palette = "Set2") +
+  theme_bw() +
+  labs(x = "Day of Week", y = "Price", fill = "Day of Week")
+```
+
+**Does an area's fuel price reflect its geographic location, or is it driven by the brands available nearby?**
+
+```{r}
+sa1_seifa <- readRDS("data/sa1_seifa.rds")
+
+fuel_sf <- fuel_df_clean |>
+  distinct(latitude, longitude, .keep_all = TRUE) |>
+  st_as_sf(coords = c("longitude", "latitude"), crs = 4326) |>
+  st_transform(crs = st_crs(sa1_seifa))
+
+ggplot() +
+  geom_sf(data = sa1_seifa, colour = "grey70", fill = "grey95", linewidth = 0.1) +
+  geom_sf(data = fuel_sf, colour = "steelblue", size = 0.5, alpha = 0.6) +
+  coord_sf(xlim = c(144.5, 145.5), ylim = c(-38.2, -37.6)) +
+  theme_bw() +
+  labs(title = "Fuel Stations across Victoria SA1 Areas")
+
+ggplot() +
+  geom_sf(data = sa1_seifa, aes(fill = as.numeric(IRSD_decile)), 
+          colour = NA, linewidth = 0) +
+  scale_fill_viridis_c() +
+  coord_sf(xlim = c(144.5, 145.5), ylim = c(-38.2, -37.6))
+
+```
 
 <!-- Task 3 Tab: Behind the Scenes -  -->
 
