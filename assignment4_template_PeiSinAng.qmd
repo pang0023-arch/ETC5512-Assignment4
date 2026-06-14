@@ -143,16 +143,18 @@ fuel_raw_combined <- bind_rows(fuel_raw_1Jun,
 ```{r}
 #| eval: false
 
-fuel_df_clean <-fuel_raw_combined |> 
+fuel_df_clean <-fuel_raw_combined |>
   select(-openingHours, -id) |>
   # Change timezone to Melbourne Time
   mutate(
     station_updatedAt_dt = ymd_hms(station_updatedAt, tz = "UTC") |>
-      with_tz("Australia/Melbourne"), 
+      with_tz("Australia/Melbourne"),
     station_date = as.Date(station_updatedAt_dt, tz = "Australia/Melbourne"),
     station_time = format(station_updatedAt_dt, "%H:%M:%S")
-  ) |> 
-  select(-station_updatedAt_dt, -station_updatedAt)
+  ) |>
+  select(-station_updatedAt_dt, -station_updatedAt) |>
+  filter(!is.na(latitude), !is.na(longitude), !is.na(price),
+         fuelType %in% c("U91", "DSL"))
 
 # Save processed data 
 saveRDS(fuel_df_clean, "data/fuel_df_clean.rds")
@@ -162,42 +164,42 @@ saveRDS(fuel_df_clean, "data/fuel_df_clean.rds")
 
 1. Navigate to [ABS Digital Boundary Files](https://www.abs.gov.au/statistics/standards/australian-statistical-geography-standard-asgs/edition-3-july-2021-june-2026/access-and-downloads/digital-boundary-files)
 
-2. Download the Statistical Area Level 2 (SA2) - 2021 - Shapefile
+2. Download the Suburb and Localities (SAL) - 2021 - Shapefile
 
 3. Navigate to [Socio-Economic Indexes for Areas (SEIFA), Australia 2021](https://www.abs.gov.au/statistics/people/people-and-communities/socio-economic-indexes-areas-seifa-australia/latest-release)
 
-4. Download the Statistical Area Level 2, Indexes, SEIFA 2021.xlsx
+4. Download the Suburb and Localities, Indexes, SEIFA 2021.xlsx
 
-5. Process and save SA2 shapefile
+5. Process and save SAL shapefile
 ```{r}
 #| eval: false
 library(sf)
 
 # Read raw shapefiles
-sa2_raw <- st_read("data/SA2_2021_AUST_SHP_GDA2020/SA2_2021_AUST_GDA2020.shp")
+sal_raw <- st_read("data/SAL_2021_AUST_GDA2020_SHP/SAL_2021_AUST_GDA2020.shp")
 
 # Filter to Victoria only
-sa2_vic <- sa2_raw |>
+sal_vic <- sal_raw |>
   filter(STE_CODE21 == "2") |>
-  select(SA2_CODE21, AREASQKM21, geometry)
+  select(SAL_CODE21, AREASQKM21, geometry)
 
-saveRDS(sa2_vic, "data/sa2_vic.rds")
+saveRDS(sal_vic, "data/sal_vic.rds")
 ```
 
-6. Read, process, join and save the SEIFA SA2 data
+6. Read, process, join and save the SEIFA SAL data
 ```{r}
 #| eval: false
 library(readxl)
 
-seifa_sa2_raw <- read_excel("data/Statistical Area Level 2, Indexes, SEIFA 2021.xlsx",
+seifa_sal_raw <- read_excel("data/Suburbs and Localities, Indexes, SEIFA 2021.xlsx",
                             sheet = "Table 1",
                             skip = 5)
 
 # Rename headers
-seifa_sa2_clean <- seifa_sa2_raw |>
+seifa_sal_clean <- seifa_sal_raw |>
   rename(
-    SA2_CODE21   = 1,
-    SA2_name     = 2,
+    SAL_CODE21   = 1,
+    SAL_name     = 2,
     IRSD_score   = 3,
     IRSD_decile  = 4,
     IRSAD_score  = 5,
@@ -207,23 +209,36 @@ seifa_sa2_clean <- seifa_sa2_raw |>
     IEO_score    = 9,
     IEO_decile   = 10
   ) |>
-  select(SA2_CODE21, SA2_name, IRSD_score, IRSD_decile, IRSAD_score, IRSAD_decile,
+  select(SAL_CODE21, SAL_name, IRSD_score, IRSD_decile, IRSAD_score, IRSAD_decile,
          IER_score, IER_decile, IEO_score, IEO_decile) |>
-  mutate(SA2_CODE21 = as.character(SA2_CODE21)) |>
-  filter(startsWith(SA2_CODE21, "2")) # filter only Victoria SA2
+  mutate(SAL_CODE21 = as.character(SAL_CODE21)) |>
+  filter(startsWith(SAL_CODE21, "2")) # filter only Victoria SAL
 
-# Save processed SEIFA SA2 data
-saveRDS(seifa_sa2_clean, "data/seifa_sa2_clean.rds")
+# Save processed SEIFA SAL data
+saveRDS(seifa_sal_clean, "data/seifa_sal_clean.rds")
 
 # Sanity check before joining
-sum(sa2_vic$SA2_CODE21 %in% seifa_sa2_clean$SA2_CODE21)
+sum(sal_vic$SAL_CODE21 %in% seifa_sal_clean$SAL_CODE21)
 
 # Join data
-sa2_seifa <- sa2_vic |>
-  left_join(seifa_sa2_clean, by = "SA2_CODE21")
+sal_seifa <- sal_vic |>
+  left_join(seifa_sal_clean, by = "SAL_CODE21")
 
 # Save joined data
-saveRDS(sa2_seifa, "data/sa2_seifa.rds")
+saveRDS(sal_seifa, "data/sal_seifa.rds")
+```
+
+7. Process and save SA4 shapefile
+```{r}
+#| eval: false
+
+sa4_raw <- st_read("data/SA4_2021_AUST_SHP_GDA2020/SA4_2021_AUST_GDA2020.shp")
+
+sa4_vic <- sa4_raw |>
+  filter(STE_CODE21 == "2") |>
+  select(SA4_CODE21, SA4_NAME21, geometry)
+
+saveRDS(sa4_vic, "data/sa4_vic.rds")
 ```
 
 <!-- Task 2 Tab: Writing your blogpost -->
@@ -247,7 +262,11 @@ There is no strict structure for you to follow. However, here is a skeleton stru
 
 **What is the optimal day of the week to refuel?**
 
+Write up explanantion for optimal day of week to refuel
 ```{r}
+#| label: fig-price-by-day
+#| fig-cap: "Distribution of fuel prices by day of week for U91 and diesel"
+
 library(tidyverse)
 library(lubridate)
 
@@ -260,103 +279,139 @@ fuel_df_clean |>
   facet_wrap(~ fuelType) +
   scale_fill_brewer(palette = "Set2") +
   theme_bw() +
-  labs(x = "Day of Week", y = "Price", fill = "Day of Week")
+  labs(x = "Day of Week", y = "Price (c/L)", fill = "Day of Week")
 ```
 
-**Does an area's fuel price reflect its geographic location, or is it driven by the brands available nearby?**
+**Does an area's fuel price reflect its geographic location?**
 
 ```{r}
+# Setup spatial data
+
 library(sf)
 
-sa2_seifa <- readRDS("data/sa2_seifa.rds")
+sal_seifa <- readRDS("data/sal_seifa.rds")
+sa4_vic <- readRDS("data/sa4_vic.rds")
+
+# Spatial join SAL to SA4 to get SA4 name for each suburb
+sal_with_sa4 <- sal_seifa |>
+  st_join(sa4_vic[c("SA4_CODE21", "SA4_NAME21")], largest = TRUE)
 
 # Convert all fuel observations to sf, retaining fuelType and price
 fuel_sf <- fuel_df_clean |>
-  filter(!is.na(latitude), !is.na(longitude), !is.na(price)) |>
   st_as_sf(coords = c("longitude", "latitude"), crs = 4326) |>
-  st_transform(crs = st_crs(sa2_seifa))
+  st_transform(crs = st_crs(sal_seifa))
 
-# Spatially join stations to SA2, then calculate median price per SA2 per fuel type
-sa2_median_price <- sa2_seifa |>
+# Spatially join stations to SAL, then calculate median price per SAL per fuel type
+sal_median_price <- sal_seifa |>
   st_join(fuel_sf) |>
   st_drop_geometry() |>
-  group_by(SA2_CODE21, fuelType) |>
+  group_by(SAL_CODE21, fuelType) |>
   summarise(median_price = median(price, na.rm = TRUE), .groups = "drop")
 
-# Rejoin median prices back to SA2 geometry
-sa2_price_map <- sa2_seifa |>
-  left_join(sa2_median_price, by = "SA2_CODE21")
+# Rejoin median prices back to SAL geometry
+sal_price_map <- sal_seifa |>
+  left_join(sal_median_price, by = "SAL_CODE21")
 
-# U91 map
-ggplot() +
-  geom_sf(data = sa2_seifa, fill = "grey90", colour = "grey70", linewidth = 0.1) +
-  geom_sf(data = filter(sa2_price_map, fuelType == "U91"),
-          aes(fill = median_price), colour = "grey70", linewidth = 0.1) +
-  scale_fill_distiller(palette = "YlOrRd", direction = 1, na.value = "grey90") +
-  coord_sf(xlim = c(142.5, 148), ylim = c(-39.1, -35.8)) +
-  theme_bw() +
-  labs(title = "Median U91 Price by SA2 Area", fill = "Median Price (c/L)")
-
-# Diesel map
- ggplot() +
-  geom_sf(data = sa2_seifa, fill = "grey90", colour = "grey70", linewidth = 0.1) +
-  geom_sf(data = filter(sa2_price_map, fuelType == "DSL"),
-          aes(fill = median_price), colour = "grey70", linewidth = 0.1) +
-  scale_fill_distiller(palette = "YlOrRd", direction = 1, na.value = "grey90") +
-  coord_sf(xlim = c(142.5, 148), ylim = c(-39.1, -35.8)) +
-  theme_bw() +
-  labs(title = "Median Diesel Price by SA2 Area", fill = "Median Price (c/L)")
-```
-Across both U91 and diesel, the number of distinct brands within an SA2 showed no consistent negative relationship with median price. Rather than declining with more compeition, prices zigsag with no clear pattern. This suggests brand availability alone is not a reliable predictor of fuel price. 
-
-```{r}
-# Number of brands per SA2 vs median price
-
-# Spatially join fuel stations to SA2
-fuel_sa2 <- st_join(fuel_sf, sa2_seifa[c("SA2_CODE21", "SA2_name")]) |>
-  st_drop_geometry() |>
-  filter(!is.na(SA2_CODE21))
-
-# Median price per SA2 per fuel type
-sa2_median <- fuel_sa2 |>
-  group_by(SA2_CODE21, fuelType) |>
-  summarise(median_price = median(price, na.rm = TRUE), .groups = "drop")
-
-# Number of distinct brands per SA2 per fuel type
-sa2_brands <- fuel_sa2 |>
-  group_by(SA2_CODE21, fuelType) |>
-  summarise(n_brands = n_distinct(brandId), .groups = "drop")
-
-# Join both summaries then group by n_brands and fuel type
-sa2_competition <- sa2_median |>
-  left_join(sa2_brands, by = c("SA2_CODE21", "fuelType"))
-
-sa2_competition_grouped <- sa2_competition |>
-  group_by(n_brands, fuelType) |>
-  summarise(
-    mean_price = mean(median_price, na.rm = TRUE),
-    n_sa2 = n()
+# Join SA4 region name into sal_price_map
+sal_price_map_sa4 <- sal_price_map |>
+  left_join(
+    sal_with_sa4 |> st_drop_geometry() |> select(SAL_CODE21, SA4_NAME21) |> distinct(),
+    by = "SAL_CODE21"
   )
 
-ggplot(sa2_competition_grouped, aes(x = n_brands, y = mean_price)) +
-  geom_point(size = 3) +
-  geom_line() +
-  scale_x_continuous(breaks = scales::breaks_width(1)) +
-  facet_wrap(~ fuelType, scales = "free_y") +
-  theme_bw() +
-  labs(x = "Number of Distinct Brands in SA2",
-       y = "Mean of Median Price (c/L)",
-       title = "Brand Competition vs Fuel Price by SA2")
+# 50km radius buffer around Melbourne CBD (centroid of ABS Melbourne SAL)
+melb_cbd <- sal_seifa |>
+  filter(SAL_name == "Melbourne") |>
+  st_centroid() |>
+  st_transform(crs = 7855) # GDA2020 / MGA Zone 55 for accurate metre-based distance
+
+melb_50km <- st_buffer(melb_cbd, dist = 50000) |>
+  st_transform(crs = st_crs(sal_price_map))
+
+melb_bbox <- st_bbox(melb_50km)
 ```
 
 ```{r}
-# Anomaly when number of distinct brands at 8 or 9, prices increases significantly 
-# Where are these areas? Larger SA2 areas with potentially more spread out stations 
-sa2_competition %>%
-  filter(n_brands >= 8) %>%
-  left_join(sa2_seifa %>% st_drop_geometry() %>% select(SA2_CODE21, SA2_name, AREASQKM21),
-            by = "SA2_CODE21") %>%
-  arrange(desc(median_price))
+#| label: fig-u91-map
+#| fig-cap: "Median U91 petrol price by suburb/locality within 50km of Melbourne CBD"
+
+ggplot() +
+  geom_sf(data = sal_seifa, fill = "grey90", colour = "grey70", linewidth = 0.1) +
+  geom_sf(data = filter(sal_price_map, fuelType == "U91"),
+          aes(fill = median_price), colour = "grey70", linewidth = 0.1) +
+  scale_fill_distiller(palette = "YlOrRd", direction = 1, na.value = "grey90") +
+  coord_sf(xlim = c(melb_bbox["xmin"], melb_bbox["xmax"]),
+           ylim = c(melb_bbox["ymin"], melb_bbox["ymax"])) +
+  theme_bw() +
+  labs(fill = "Median Price (c/L)")
+```
+
+```{r}
+#| label: fig-dsl-map
+#| fig-cap: "Median diesel price by suburb/locality within 50km of Melbourne CBD"
+
+ggplot() +
+  geom_sf(data = sal_seifa, fill = "grey90", colour = "grey70", linewidth = 0.1) +
+  geom_sf(data = filter(sal_price_map, fuelType == "DSL"),
+          aes(fill = median_price), colour = "grey70", linewidth = 0.1) +
+  scale_fill_distiller(palette = "YlOrRd", direction = 1, na.value = "grey90") +
+  coord_sf(xlim = c(melb_bbox["xmin"], melb_bbox["xmax"]),
+           ylim = c(melb_bbox["ymin"], melb_bbox["ymax"])) +
+  theme_bw() +
+  labs(fill = "Median Price (c/L)")
+```
+
+```{r}
+#| label: tbl-u91-cheapest
+#| tbl-cap: "10 cheapest suburbs for U91 within 50km of Melbourne CBD"
+
+sal_price_map_sa4 |>
+  st_filter(melb_50km) |>
+  st_drop_geometry() |>
+  filter(fuelType == "U91") |>
+  slice_min(median_price, n = 10) |>
+  arrange(median_price) |>
+  select(SAL_name, SA4_NAME21, median_price) |>
+  rename(Suburb = SAL_name, `SA4 Region` = SA4_NAME21, `Median Price (c/L)` = median_price) |>
+  knitr::kable(digits = 1)
+```
+
+```{r}
+#| label: tbl-dsl-cheapest
+#| tbl-cap: "10 cheapest suburbs for diesel within 50km of Melbourne CBD"
+
+sal_price_map_sa4 |>
+  st_filter(melb_50km) |>
+  st_drop_geometry() |>
+  filter(fuelType == "DSL") |>
+  slice_min(median_price, n = 10) |>
+  arrange(median_price) |>
+  select(SAL_name, SA4_NAME21, median_price) |>
+  rename(Suburb = SAL_name, `SA4 Region` = SA4_NAME21, `Median Price (c/L)` = median_price) |>
+  knitr::kable(digits = 1)
+```
+The cheapest U91 suburbs are scattered across different directions from the CBD — north, south, and southeast, suggesting distance alone isn't the deciding factor. If geography were the main driver, we'd expect a tighter cluster. Diesel tells a different story: eight of the ten cheapest suburbs sit in Melbourne's west, hinting at something structural in that corridor.
+So what do these suburbs have in common? One likely answer is competition — specifically, the presence of high-volume, price-aggressive operators. if location doesn't fully explain price variation, could socioeconomic factors be at play? Are disadvantaged communities quietly paying more at the pump?"
+
+**Is Socioeconomic the reason?**
+
+
+```{r}
+#| label: fig-seifa-all-dotplot
+#| fig-cap: "Median fuel price vs IRSD decile for all suburbs with data (1 = most disadvantaged)"
+
+sal_price_map_sa4 |>
+  st_drop_geometry() |>
+  filter(!is.na(median_price), !is.na(IRSD_decile)) |>
+  ggplot(aes(x = as.numeric(IRSD_decile), y = median_price)) +
+  geom_point(alpha = 0.4, size = 1.5, colour = "steelblue") +
+  scale_x_continuous(breaks = 1:10) +
+  facet_wrap(~ fuelType, scales = "free_y") +
+  theme_bw() +
+  labs(
+    x = "IRSD Decile (1 = Most Disadvantaged, 10 = Least Disadvantaged)",
+    y = "Median Price (c/L)"
+  )
 ```
 
 <!-- Task 3 Tab: Behind the Scenes -  -->
