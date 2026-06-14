@@ -1,10 +1,11 @@
 ---
-title: "What is your blogpost title? Add it here??"
+title: "Is there an optimal time and place to fill up your vehicle in Victoria?"
 subtitle: "Assignment 4 ETC5512"
 author: "Pei Sin Ang"
 format: html
 editor: visual
-execute: 
+bibliography: references.bib
+execute:
   message: false
   warning: false
 ---
@@ -18,17 +19,18 @@ execute:
 
 Is there an optimal time and place to fill up your vehicle in Victoria?
 
-- Does an area's fuel price reflect its geographic location, or is it driven by the brands available nearby?
+- What is the optimal day of the week to refuel?
+
+- Where is the best place to fill up?
 
 - Do socioeconomically disadvantaged areas pay more or less for fuel compared to wealthier areas?
 
-- What is the optimal day of the week to refuel?
 
-While browsing the [ABC's national fuel price tracker](https://www.abc.net.au/news/2026-04-01/petrol-diesel-price-tracker/106513484) i noticed that Victoria's data was absent, due to the way the state releases price information. As someone personally affected by the fluctuating fuel costs, I wanted to fill that gap and investigate whether there are smart times and places to refuel in Victoria, using the Servo Saver dataset.
+While browsing the [ABC's national fuel price tracker](https://www.abc.net.au/news/2026-04-01/petrol-diesel-price-tracker/106513484) [@casey_briggs_track_2026] i noticed that Victoria's data was absent, due to the way the state releases price information. As someone personally affected by the fluctuating fuel costs, I wanted to fill that gap and investigate whether there are smart times and places to refuel in Victoria, using the Servo Saver dataset.
 
 **Dataset:**
 
-1.  [Servo Saver Public API](https://service.vic.gov.au/find-services/transport-and-driving/servo-saver/help-centre/servo-saver-public-api#h2-11)
+1.  [Servo Saver Public API](https://service.vic.gov.au/find-services/transport-and-driving/servo-saver/help-centre/servo-saver-public-api#h2-11) [@services_australia_servo_2026]
 
     - Source: Service Victoria
 
@@ -36,14 +38,14 @@ While browsing the [ABC's national fuel price tracker](https://www.abc.net.au/ne
 
     - Last Updated: 24-hour delay released
 
-    - Data Type: Census
+    - Data Type: Sample
 
     - Licence: Creative Commons Attribution 4.0 International licence
 
-    - Limitation: Data refresh every 24-hour, there is no historical data. User will have to pull the data from the API key periodically. Coverage depends on retailer compliance.
-
+    - Limitation: Data refresh every 24-hour, there is no historical data. Data was pulled for 1 June 2026 to 5 Jun 2026 (Monday to Friday) only. It is just a snapshot in time, and may not be representative of how prices move. It is also dependent on fuel provider's cooperation to update their prices.
+    
     - Privacy/Ethics: Not personally identifiable information. Commercial data only.
-2.  [ABS Digital Boundary Files](https://www.abs.gov.au/statistics/standards/australian-statistical-geography-standard-asgs/edition-3-july-2021-june-2026/access-and-downloads/digital-boundary-files)
+2.  [ABS Digital Boundary Files](https://www.abs.gov.au/statistics/standards/australian-statistical-geography-standard-asgs/edition-3-july-2021-june-2026/access-and-downloads/digital-boundary-files) [@abs_digital_2025]
 
     - Source: Australian Bureau of Statistics (ABS)
 
@@ -59,7 +61,7 @@ While browsing the [ABC's national fuel price tracker](https://www.abc.net.au/ne
     
     - Privacy/Ethics: No privacy concerns, geographic reference data only.
 
-3. [Socio-Economic Indexes for Areas (SEIFA), Australia 2021](https://www.abs.gov.au/statistics/people/people-and-communities/socio-economic-indexes-areas-seifa-australia/latest-release)
+3. [Socio-Economic Indexes for Areas (SEIFA), Australia 2021](https://www.abs.gov.au/statistics/people/people-and-communities/socio-economic-indexes-areas-seifa-australia/latest-release) [@abs_socio-economic_2023]
 
     - Source: Australian Bureau of Statistics (ABS)
     
@@ -116,7 +118,7 @@ fuel_df_raw_1Jun <- resp$fuelPriceDetails |>
   unnest(fuelPrices) |> 
   unnest(location)
 
-saveRDS(fuel_df_raw_1Jun, "data/fuel_df_raw_2026-06-01.rds")
+saveRDS(fuel_df_raw_1Jun, "data/raw/fuel_df_raw_2026-06-01.rds")
 ```
 
 4. Combine all 5 days of data into one
@@ -125,11 +127,11 @@ saveRDS(fuel_df_raw_1Jun, "data/fuel_df_raw_2026-06-01.rds")
 
 library(tidyverse)
 
-fuel_raw_1Jun <- readRDS("data/fuel_df_raw_2026-06-01.rds")
-fuel_raw_2Jun <- readRDS("data/fuel_df_raw_2026-06-02.rds")
-fuel_raw_3Jun <- readRDS("data/fuel_df_raw_2026-06-03.rds")
-fuel_raw_4Jun <- readRDS("data/fuel_df_raw_2026-06-04.rds")
-fuel_raw_5Jun <- readRDS("data/fuel_df_raw_2026-06-05.rds")
+fuel_raw_1Jun <- readRDS("data/raw/fuel_df_raw_2026-06-01.rds")
+fuel_raw_2Jun <- readRDS("data/raw/fuel_df_raw_2026-06-02.rds")
+fuel_raw_3Jun <- readRDS("data/raw/fuel_df_raw_2026-06-03.rds")
+fuel_raw_4Jun <- readRDS("data/raw/fuel_df_raw_2026-06-04.rds")
+fuel_raw_5Jun <- readRDS("data/raw/fuel_df_raw_2026-06-05.rds")
 
 fuel_raw_combined <- bind_rows(fuel_raw_1Jun, 
                                fuel_raw_2Jun,
@@ -157,7 +159,7 @@ fuel_df_clean <-fuel_raw_combined |>
          fuelType %in% c("U91", "DSL"))
 
 # Save processed data 
-saveRDS(fuel_df_clean, "data/fuel_df_clean.rds")
+saveRDS(fuel_df_clean, "data/processed/fuel_df_clean.rds")
 ```
 
 **ABS Digital Boundary File and SEIFA**
@@ -176,14 +178,14 @@ saveRDS(fuel_df_clean, "data/fuel_df_clean.rds")
 library(sf)
 
 # Read raw shapefiles
-sal_raw <- st_read("data/SAL_2021_AUST_GDA2020_SHP/SAL_2021_AUST_GDA2020.shp")
+sal_raw <- st_read("data/raw/SAL_2021_AUST_GDA2020_SHP/SAL_2021_AUST_GDA2020.shp")
 
 # Filter to Victoria only
 sal_vic <- sal_raw |>
   filter(STE_CODE21 == "2") |>
   select(SAL_CODE21, AREASQKM21, geometry)
 
-saveRDS(sal_vic, "data/sal_vic.rds")
+saveRDS(sal_vic, "data/processed/sal_vic.rds")
 ```
 
 6. Read, process, join and save the SEIFA SAL data
@@ -191,7 +193,7 @@ saveRDS(sal_vic, "data/sal_vic.rds")
 #| eval: false
 library(readxl)
 
-seifa_sal_raw <- read_excel("data/Suburbs and Localities, Indexes, SEIFA 2021.xlsx",
+seifa_sal_raw <- read_excel("data/raw/Suburbs and Localities, Indexes, SEIFA 2021.xlsx",
                             sheet = "Table 1",
                             skip = 5)
 
@@ -215,7 +217,7 @@ seifa_sal_clean <- seifa_sal_raw |>
   filter(startsWith(SAL_CODE21, "2")) # filter only Victoria SAL
 
 # Save processed SEIFA SAL data
-saveRDS(seifa_sal_clean, "data/seifa_sal_clean.rds")
+saveRDS(seifa_sal_clean, "data/processed/seifa_sal_clean.rds")
 
 # Sanity check before joining
 sum(sal_vic$SAL_CODE21 %in% seifa_sal_clean$SAL_CODE21)
@@ -225,55 +227,73 @@ sal_seifa <- sal_vic |>
   left_join(seifa_sal_clean, by = "SAL_CODE21")
 
 # Save joined data
-saveRDS(sal_seifa, "data/sal_seifa.rds")
+saveRDS(sal_seifa, "data/processed/sal_seifa.rds")
 ```
 
 7. Process and save SA4 shapefile
 ```{r}
 #| eval: false
 
-sa4_raw <- st_read("data/SA4_2021_AUST_SHP_GDA2020/SA4_2021_AUST_GDA2020.shp")
+sa4_raw <- st_read("data/raw/SA4_2021_AUST_SHP_GDA2020/SA4_2021_AUST_GDA2020.shp")
 
 sa4_vic <- sa4_raw |>
   filter(STE_CODE21 == "2") |>
   select(SA4_CODE21, SA4_NAME21, geometry)
 
-saveRDS(sa4_vic, "data/sa4_vic.rds")
+saveRDS(sa4_vic, "data/processed/sa4_vic.rds")
 ```
+
+### References
+
+**R Packages**
+
+- Wickham H (2025). *httr2: Perform HTTP Requests and Process the Responses*. doi:10.32614/CRAN.package.httr2 <https://doi.org/10.32614/CRAN.package.httr2>. R package version 1.2.2, <https://CRAN.R-project.org/package=httr2>.
+
+- Wickham H, Averick M, Bryan J, Chang W, McGowan LD, François R, Grolemund G, Hayes A, Henry L, Hester J, Kuhn M, Pedersen TL, Miller E, Bache SM, Müller K, Ooms J, Robinson D, Seidel DP, Spinu V, Takahashi K, Vaughan D, Wilke C, Woo K, Yutani H (2019). "Welcome to the tidyverse." *Journal of Open Source Software*, **4**(43), 1686. doi:10.21105/joss.01686 <https://doi.org/10.21105/joss.01686>.
+
+- Grolemund G, Wickham H (2011). "Dates and Times Made Easy with lubridate." *Journal of Statistical Software*, **40**(3), 1–25. <https://www.jstatsoft.org/v40/i03/>.
+
+- Pebesma E, Bivand R (2023). *Spatial Data Science: With Applications in R*. Chapman and Hall/CRC. <https://doi.org/10.1201/9780429459016>.
+- Pebesma E (2018). "Simple Features for R: Standardized Support for Spatial Vector Data." *The R Journal*, **10**(1), 439–446. <https://doi.org/10.32614/RJ-2018-009>.
+
+- Wickham H, Bryan J (2025). *readxl: Read Excel Files*. doi:10.32614/CRAN.package.readxl <https://doi.org/10.32614/CRAN.package.readxl>. R package version 1.4.5, <https://CRAN.R-project.org/package=readxl>.
+
+**Data Sources**
+
+::: {#refs}
+:::
 
 <!-- Task 2 Tab: Writing your blogpost -->
 
 ## Blog post
 
-### What's in this section
+### Why does petrol always seem cheaper when you've just filled up?
 
-Here is where you should write your blogpost! (Task 2)
+Have you ever held off refueliling for a day or two, hoping to wait out the prices, only to finally pull in, pump a full tank and then pull out of the servo to find a competitor down the road charging ten cents less per litre? Well, I have! Is it just bad luck or is there a pattern hiding in the noise? 
 
-### Blogpost Structure
+It was only until October 2025 that Victoria finally made this question answerable with the release of publicly accessible fuel price data through the Servo Saver API [@services_australia_servo_2026]. For the first time, drivers and researchers alike could look beyond the gut feeling and acutally interrogate the numbers.
 
-There is no strict structure for you to follow. However, here is a skeleton structure you may find helpful.
+The timing couldn't have felt more relevant. When conflict broke out in Iran in March 2026, fuel prices in Australia began climbing and was more volatile than usual. If every trip to the servo already felt like a gamble, higher prices felt like higher stakes. It was only when the federal government's fuel excise discount kicked in from 1 April that prices begin to stabilise. But during those volatile weeks in between, the pressure to pump at the "right" time felt very real. 
 
-1.  Title (is set at the top of this document)
-2.  Motivation\
-3.  Data\
-4.  Analysis\
-5.  Conclusions\
-6.  References
+### What is optimal? 
+
+For the purpose of this post, optimal simply means cheapest. Not most convenient, not closest to home, just the lowest price per litre. Under Victoria's Servo Saver scheme, each station publishes a daily price cap which is the maximum they can charge that day. This resets at 6am each morning. Using data pulled at 11:50pm daily from 1 June 2026 to 5 Jun 2026 (Monday to Friday),  we treat this cap as a reasonable proxy for the day's price, helping to smooth out intraday fluctuations that may occur as stations are permitted to reduce their price during the day.
+
+While stations can charge less than the cap at any point during the day, and discounts or vouchers aren't accounted for, comparing end of day caps across days and locations gives us a consistent and fair basis to find patterns.
 
 **What is the optimal day of the week to refuel?**
 
-Write up explanantion for optimal day of week to refuel
 ```{r}
 #| label: fig-price-by-day
 #| fig-cap: "Distribution of fuel prices by day of week for U91 and diesel"
-
+#| echo: false
 library(tidyverse)
 library(lubridate)
 
-fuel_df_clean <- readRDS("data/fuel_df_clean.rds")
+fuel_df_clean <- readRDS("data/processed/fuel_df_clean.rds")
 
 fuel_df_clean |>
-  mutate(transaction_day = factor(wday(station_date, label = TRUE, abbr = FALSE))) |>
+  mutate(transaction_day = factor(wday(station_date, label = TRUE, abbr = TRUE))) |>
   ggplot(aes(x = transaction_day, y = price, fill = transaction_day)) +
   geom_boxplot() +
   facet_wrap(~ fuelType) +
@@ -282,15 +302,49 @@ fuel_df_clean |>
   labs(x = "Day of Week", y = "Price (c/L)", fill = "Day of Week")
 ```
 
-**Does an area's fuel price reflect its geographic location?**
+```{r}
+#| include: false
+
+day_medians <- fuel_df_clean |>
+  mutate(day = wday(station_date, label = TRUE, abbr = TRUE)) |>
+  group_by(fuelType, day) |>
+  summarise(median_price = round(median(price, na.rm = TRUE), 1), 
+            .groups = "drop")
+
+u91_mon <- day_medians |> 
+  filter(fuelType == "U91", day == "Mon") |> pull(median_price)
+
+u91_fri <- day_medians |> filter(fuelType == "U91", day == "Fri") |>
+  pull(median_price)
+
+dsl_mon <- day_medians |> 
+  filter(fuelType == "DSL", day == "Mon") |> 
+  pull(median_price)
+
+dsl_fri <- day_medians |> 
+  filter(fuelType == "DSL", day == "Fri") |> 
+  pull(median_price)
+```
+
+If you have any flexibility when you fill up, the data suggests it's worth holding out until the end of the week [@services_australia_servo_2026]. Across both diesel and unleaded 91, price maps followed a consistent downward trend from Monday through Friday. The difference however isn't dramatic. For U91, median prices sat around `r u91_mon`c/L on Monday, drifting down to roughly `r u91_fri`c/L by Friday. Diesel followed a similar pattern with medians starting around `r dsl_mon`c/L on Monday, and easing towards `r dsl_fri`c/L by Friday.
+
+It's worth noting that the spread of outliers well above 300c/L exist on every day of the week which likely reflects regional and remote stations where prices are structurally higher regardless of the day. These pull the upper tail up but don't change the overall story. 
+
+While this is a sample of only 5 days, a complete daily data for a longer period of time, say a month could give a better representation.
+
+**Where is the best place to fill up?**
+
+Victoria is quite big state, but let's be honest, no one is driving an hour out of their way to save a few cents on petrol. So for this anlaysis, I narrowed the focus to a 50km radius from Melbourne's CBD, in hopes of capturing the areas where most Victorians actually live and refuel.
+
 
 ```{r}
+#| include: false
 # Setup spatial data
 
 library(sf)
 
-sal_seifa <- readRDS("data/sal_seifa.rds")
-sa4_vic <- readRDS("data/sa4_vic.rds")
+sal_seifa <- readRDS("data/processed/sal_seifa.rds")
+sa4_vic <- readRDS("data/processed/sa4_vic.rds")
 
 # Spatial join SAL to SA4 to get SA4 name for each suburb
 sal_with_sa4 <- sal_seifa |>
@@ -315,8 +369,10 @@ sal_price_map <- sal_seifa |>
 # Join SA4 region name into sal_price_map
 sal_price_map_sa4 <- sal_price_map |>
   left_join(
-    sal_with_sa4 |> st_drop_geometry() |> select(SAL_CODE21, SA4_NAME21) |> distinct(),
-    by = "SAL_CODE21"
+    sal_with_sa4 |> 
+      st_drop_geometry() |> 
+      select(SAL_CODE21, SA4_NAME21) |> 
+      distinct(), by = "SAL_CODE21"
   )
 
 # 50km radius buffer around Melbourne CBD (centroid of ABS Melbourne SAL)
@@ -334,7 +390,7 @@ melb_bbox <- st_bbox(melb_50km)
 ```{r}
 #| label: fig-u91-map
 #| fig-cap: "Median U91 petrol price by suburb/locality within 50km of Melbourne CBD"
-
+#| echo: false
 ggplot() +
   geom_sf(data = sal_seifa, fill = "grey90", colour = "grey70", linewidth = 0.1) +
   geom_sf(data = filter(sal_price_map, fuelType == "U91"),
@@ -345,26 +401,10 @@ ggplot() +
   theme_bw() +
   labs(fill = "Median Price (c/L)")
 ```
-
-```{r}
-#| label: fig-dsl-map
-#| fig-cap: "Median diesel price by suburb/locality within 50km of Melbourne CBD"
-
-ggplot() +
-  geom_sf(data = sal_seifa, fill = "grey90", colour = "grey70", linewidth = 0.1) +
-  geom_sf(data = filter(sal_price_map, fuelType == "DSL"),
-          aes(fill = median_price), colour = "grey70", linewidth = 0.1) +
-  scale_fill_distiller(palette = "YlOrRd", direction = 1, na.value = "grey90") +
-  coord_sf(xlim = c(melb_bbox["xmin"], melb_bbox["xmax"]),
-           ylim = c(melb_bbox["ymin"], melb_bbox["ymax"])) +
-  theme_bw() +
-  labs(fill = "Median Price (c/L)")
-```
-
 ```{r}
 #| label: tbl-u91-cheapest
 #| tbl-cap: "10 cheapest suburbs for U91 within 50km of Melbourne CBD"
-
+#| echo: false
 sal_price_map_sa4 |>
   st_filter(melb_50km) |>
   st_drop_geometry() |>
@@ -377,8 +417,41 @@ sal_price_map_sa4 |>
 ```
 
 ```{r}
+#| include: false
+
+u91_range <- sal_price_map_sa4 |>
+  st_filter(melb_50km) |>
+  st_drop_geometry() |>
+  filter(fuelType == "U91", !is.na(median_price)) |>
+  summarise(range = round(max(median_price) - min(median_price), 1)) |>
+  pull(range)
+```
+
+Looking at the choropleth map (@fig-u91-map) [@services_australia_servo_2026; @abs_digital_2025; @abs_socio-economic_2023] the first thing that stands out is how little variation there actually is. U91 median prices across the 50km radius sit within a relatively tight range of `r u91_range` c/L. 
+
+The 10 cheapest suburbs for U91 (@tbl-u91-cheapest) [@services_australia_servo_2026; @abs_digital_2025; @abs_socio-economic_2023] reinforces this point. Rather than clustering in one direction, they are scattered across the north-east, inner south, west and the Mornington Peninsula. If distance from CBD were the main driver, we'd expect a tidier pattern. 
+
+For context, if you drive a Toyota Corolla with a fuel tank of 50L, that is a $`r round(u91_range * 50 / 100, 2)` savings per tank. Is that worth crossing the suburb for?
+
+```{r}
+#| label: fig-dsl-map
+#| fig-cap: "Median diesel price by suburb/locality within 50km of Melbourne CBD"
+#| echo: false
+ggplot() +
+  geom_sf(data = sal_seifa, fill = "grey90", colour = "grey70", linewidth = 0.1) +
+  geom_sf(data = filter(sal_price_map, fuelType == "DSL"),
+          aes(fill = median_price), colour = "grey70", linewidth = 0.1) +
+  scale_fill_distiller(palette = "YlOrRd", direction = 1, na.value = "grey90") +
+  coord_sf(xlim = c(melb_bbox["xmin"], melb_bbox["xmax"]),
+           ylim = c(melb_bbox["ymin"], melb_bbox["ymax"])) +
+  theme_bw() +
+  labs(fill = "Median Price (c/L)")
+```
+
+```{r}
 #| label: tbl-dsl-cheapest
 #| tbl-cap: "10 cheapest suburbs for diesel within 50km of Melbourne CBD"
+#| echo: false
 
 sal_price_map_sa4 |>
   st_filter(melb_50km) |>
@@ -390,16 +463,30 @@ sal_price_map_sa4 |>
   rename(Suburb = SAL_name, `SA4 Region` = SA4_NAME21, `Median Price (c/L)` = median_price) |>
   knitr::kable(digits = 1)
 ```
-The cheapest U91 suburbs are scattered across different directions from the CBD — north, south, and southeast, suggesting distance alone isn't the deciding factor. If geography were the main driver, we'd expect a tighter cluster. Diesel tells a different story: eight of the ten cheapest suburbs sit in Melbourne's west, hinting at something structural in that corridor.
-So what do these suburbs have in common? One likely answer is competition — specifically, the presence of high-volume, price-aggressive operators. if location doesn't fully explain price variation, could socioeconomic factors be at play? Are disadvantaged communities quietly paying more at the pump?"
 
-**Is Socioeconomic the reason?**
+```{r}
+#| include: false
+dsl_range <- sal_price_map_sa4 |>
+  st_filter(melb_50km) |>
+  st_drop_geometry() |>
+  filter(fuelType == "DSL", !is.na(median_price)) |>
+  summarise(range = round(max(median_price) - min(median_price), 1)) |>
+  pull(range)
+```
 
+Unlike U91 where cheap suburbs were scattered across multiple directions, eight of the ten cheapest diesel suburbs sit firmly in Melbourne's West (@tbl-dsl-cheapest) [@services_australia_servo_2026; @abs_digital_2025; @abs_socio-economic_2023]. That could point us to the areas that are likely to have a higher concentration of heavy vehicle traffic and industrial activity, driving competition among diesel retailers.
+
+The choropleth map (@fig-dsl-map) [@services_australia_servo_2026; @abs_digital_2025; @abs_socio-economic_2023] also reveals noticeable red patches near the CBD and inner east, suggesting some subrubs are pay significantly more for diesel than their neighbours just a few kilometres away. The variation is less uniform than what we saw with U91. Range is also wider at `r dsl_range` c/L. 
+
+It is a lot clearer for diesel drivers that location matters more, and if you're west of the city, you're already sitting in the sweet spot.
+
+
+**Is fuel cheaper in more disadvantaged areas?**
 
 ```{r}
 #| label: fig-seifa-all-dotplot
 #| fig-cap: "Median fuel price vs IRSD decile for all suburbs with data (1 = most disadvantaged)"
-
+#| echo: false
 sal_price_map_sa4 |>
   st_drop_geometry() |>
   filter(!is.na(median_price), !is.na(IRSD_decile)) |>
@@ -413,14 +500,101 @@ sal_price_map_sa4 |>
     y = "Median Price (c/L)"
   )
 ```
+Going into this, I had assumed that more disadvantaged areas might enjoy slightly cheaper fuel, but it was more of a gut feeling than anything grounded in evidence. Perhaps lower-income communities have less disposable income, creating pressure on local servos to price more competitively. 
+
+The data (@fig-seifa-all-dotplot) [@services_australia_servo_2026; @abs_digital_2025; @abs_socio-economic_2023] however shows no clear trend in either direction. The median fuel prices aginst Index of Relative Socio-economic Disadvantage (IRSD), where the low score indicates relative greater disadvantage and higher scores the relative lack of disadvantage. The bulk of suburbs sit within the same price band regardless of where they fall on the socioeconmic scale for both U91 and diesel. 
+
+### What can we learn from this? 
+
+It might feel counterintuitive, but honest takeaway from this analysis is that there's no golden time to refuel. When you need petrol, you need it. That said, a few patterns did emerge. Friday tends to be the cheapest day of the week to fill up, and if you're a diesel driver, Melbourne's west is where you want to be. Beyond that, neither geography nor socioeconomic status proved to be a strong predictor of what you'll pay at the pump.
+
+This analysis raises more questions, and fuel prices could be shaped by forces well beyond suburb boundaries. Global oil market, supply and demand, and news events like the conflict in Iran earlier this year. Five days of data is merely a snapshot. 
+
+I would love to incorporate some of these broader drivers into the anlaysis and extending the time window to capture a fuller picture of the pricing cycle. 
+
+### References
+
+**R Packages**
+
+- Wickham H, Averick M, Bryan J, Chang W, McGowan LD, François R, Grolemund G, Hayes A, Henry L, Hester J, Kuhn M, Pedersen TL, Miller E, Bache SM, Müller K, Ooms J, Robinson D, Seidel DP, Spinu V, Takahashi K, Vaughan D, Wilke C, Woo K, Yutani H (2019). "Welcome to the tidyverse." *Journal of Open Source Software*, **4**(43), 1686. doi:10.21105/joss.01686 <https://doi.org/10.21105/joss.01686>.
+
+- Grolemund G, Wickham H (2011). "Dates and Times Made Easy with lubridate." *Journal of Statistical Software*, **40**(3), 1–25. <https://www.jstatsoft.org/v40/i03/>.
+
+- Pebesma E, Bivand R (2023). *Spatial Data Science: With Applications in R*. Chapman and Hall/CRC. <https://doi.org/10.1201/9780429459016>.
+
+- Pebesma E (2018). "Simple Features for R: Standardized Support for Spatial Vector Data." *The R Journal*, **10**(1), 439–446. <https://doi.org/10.32614/RJ-2018-009>.
+
+- Xie Y (2025). *knitr: A General-Purpose Package for Dynamic Report Generation in R*. R package version 1.51, <https://yihui.org/knitr/>.
+
+**Data Sources**
+
+::: {#refs}
+:::
+
 
 <!-- Task 3 Tab: Behind the Scenes -  -->
 
 ## Behind the Scenes
 
-### What's in this section
+### Question 5
 
-Here is where you should tell us about your reflection on your analysis (Task 3).
+Pulling the fuel data with the API key took a while as the instructions in the Fair Fuel Open Data API documentation was not entirely clear. With the help of both Kris and AI to understand how to use the `httr2` package and troubleshoot until it ran sucessfully. Once pulled, the raw data contained nested dataframes within the dataframe, which required unnesting before it could be used.
 
-Again, these are the details about **your** perspective and the gritty details behind the scenes of your analysis.
+Data exploration was conducted using a test pull to understand what was captured and how to clean it. The timezone handling was particularly confusing as the timestamps were recorded in UTC by default despite being an Australian dataset. Since I planned to collect data each weekday at 11:50pm, and price caps reset at 6am daily, getting the timezone right was critical. A missed pull meant the data was gone for good.
+
+The SEIFA data presented its own challenge. It came as an Excel file with merged header rows spread across multiple lines, which caused reading issues. R threw a long list of warning messages that were difficult to decipher at first. It took some trial and error before I realised the headers needed to be manually renamed after import to get the data into a usable shape. Filtering to Victoria-only records was also not straightforward at first as there was no explicit state column. The workaround came after noticing all Victorian Suburbs and Localities (SAL) codes begin with 2, which allowed me to filter the data reliable without needing a state identifier.
+
+### Question 6
+
+One challenge I did not anticipate was the limitations of visualising fuel prices across all of Victoria. When plotted at the state level, the choropleth map was too zoomed out to reveal any meaningful spatial patterns, suburbs became too small to distinguish, and the sheer number of localities made the map visually overwhelming with little to interpret. 
+
+This led me to change my intended scope from all of Victoria to a 50km radius from Melbourne's CBD. While this narrowed the analysis, it was a deliberate decision considering that most Victorians live within this corridor, and it produced a map that was actually readable. 
+Trade-off: 
+Most rural areas is excluded, and some of these areas did show up with high fuel prices. But from the perspective of someone who is looking for the optimal time and place to pump petrol, it might not make sense to travel that far out. 
+
+I had to learn with the help of AI to apply the 50km boundary, as I could not simply filter by suburb name. So I made use the the `st_centroid` that we had used previously and the help of AI to project it into a metre-based coordinate reference to ensure the distance were accurate, and then create a 50km buffer around that point. From there, I used the buffer's bounding box to crop the map to the right boundaries instead of adjusting it manually until it fits. I also wanted it to be something I can justify, and in this case it was the 50km radius.
+
+### Question 7 
+
+I had initially set out to also explore whether the fuel provider or brand affects price. However, this proved difficult to execute cleanly. Station names in the dataset followed no consistent pattern. Entries like "Endeavour Alberton", "AG Warehouse - Kiewa", or "Lockington District Business Centre Inc" all had very different patterns, and that made it hard to reliably identify the underlying brand using string functions. 
+
+I also attempted to use `brandID` as an alternative grouping variable, but this too was inconsistent. For instance, some BP stations shared the same ID while others of the same brand carried different IDs entirely. Without a reliable way to verify that stations were grouped correctly, I couldn't confidently include this in the analysis and it fell outside the final scope.
+
+In future, I might attempt using an AI agent such as through `ellmer` package in R to intelligently parse and standardise the messy fuel providers into recognisable brand groups. 
+
+### Question 8
+I had used AI to help me with the codes for map visualisation as well as cleaning the raw fuel data and when I attempted to sort the fuel providers. For the most part, it was reliable, as I had a clear direction of the output and asked targeted questions with constraints that steer it in the right direction. 
+
+However, cleaning the fuel providers names was an extremely frustrating experience. Because I had no clear picture of what the cleaned output should look like, I struggled to guide AI effectively. Even when I provided screenshots of problematic cases, it was unable to handle them reliably, and couldn't clearly justify the cleaning decisions it made. Without knowing what the correct output should look like, I also had no way to verify whether the result was trustworthy. 
+
+### Question 9
+
+[My GitHub Repo](https://github.com/pang0023-arch/ETC5512-Assignment4)
+
+I worked across four branches to test different analytical angles, as I was unsure early on what would work best.
+
+V1.0 - This version attempts to use SA1 map to find the geographical trend, I had a feeling that it was too granular, but I just wanted to prove it and look at how it looks like visually. While the intention was that finer geography might pinpoint exact stations with the best prices, the resulting map was an information overload and told no clear story.
+
+V2.0 - stepped up to SA2, which was a marked improvement in readability. I was initially happy enough with this to merge it back into the main branch and continue building from there.
+
+V3.0 - is where things got messy. I discovered that SA2 only provided code names with no recognisable place references which is unhelpful for both readers and myself. I also spent time here attempting to clean the fuel provider brand names and exploring whether the number of distinct brands in each SA2 explained price variation. A spike in distinct brand counts in larger regional areas seemed to correlate with higher median prices, but I ultimately dropped this angle entirely. I couldn't confidently verify the brand cleaning was correct, and in hindsight I should have been counting total number of servos rather than distinct brands.
+
+V4.0 - I finally landed on SAL (Suburbs and Localities) as the geographic unit, which is far more recognisable to readers. I also introduced SA4 region names to give broader geographic context for suburbs that readers might not be familiar with.
+
+### AI citation
+
+1. API pull and cleaning of `fuel_df` 
+   https://claude.ai/share/054c6c92-67f4-4624-bfa0-b9bdc72070e0
+   
+2. SEIFA cleaning 
+   https://claude.ai/share/c692dcae-e42f-4828-91ac-46a125fef108
+   
+3. Task 2 
+   - How to convert the dates to Mon to Fridayhow to use st_join
+   - how to ensure that SA4 with the largest overlap area is selected if SAL intersects with more than 1 SA4
+   - How to use centroid for radius of 50km
+   - how to creating bounding box
+   - how to filter out certain data with filter function or equivalent if both files are shapefiles
+   https://claude.ai/share/f36368e7-7bdb-47c6-a995-d9d778b79235
+   
 :::
