@@ -49,7 +49,7 @@ While browsing the [ABC's national fuel price tracker](https://www.abc.net.au/ne
 
     - Source: Australian Bureau of Statistics (ABS)
 
-    - Content: Spatial boundary shapefiles used to map service station locations to statistical areas for geographic price comparison.
+    - Content: Spatial boundary shapefiles used to map service station locations to statistical areas for geographic price comparison. SA4 and SAL only.
     
     - Last updated: 2021
 
@@ -164,9 +164,9 @@ saveRDS(fuel_df_clean, "data/processed/fuel_df_clean.rds")
 
 **ABS Digital Boundary File and SEIFA**
 
-1. Navigate to [ABS Digital Boundary Files](https://www.abs.gov.au/statistics/standards/australian-statistical-geography-standard-asgs/edition-3-july-2021-june-2026/access-and-downloads/digital-boundary-files)
+1. Navigate to [ABS Digital Boundary Files](https://www.abs.gov.au/statistics/standards/australian-statistical-geography-standard-asgs/edition-3-july-2021-june-2026/access-and-downloads/digital-boundary-files). 
 
-2. Download the Suburb and Localities (SAL) - 2021 - Shapefile
+2. Download the Suburb and Localities (SAL) - 2021 - Shapefile, and SA4 - 2021 - Shapefile. Click on "Download ZIP"
 
 3. Navigate to [Socio-Economic Indexes for Areas (SEIFA), Australia 2021](https://www.abs.gov.au/statistics/people/people-and-communities/socio-economic-indexes-areas-seifa-australia/latest-release)
 
